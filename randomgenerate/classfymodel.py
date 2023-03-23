@@ -249,11 +249,11 @@ def linear_classify(total_data,n_clusters,hidden_size):
     train_y = y[:seperate_index]
     test_X = X[seperate_index:]
     test_y = y[seperate_index:]
-    device = torch.device('cuda')
+    device = torch.device('cpu')
     model = linear_model_pytorch(3,hidden_size,n_clusters,relu=False).to(device)
 
     train_dataset = simple_dataset(train_X,train_y)
-    train_dataloader = DataLoader(train_dataset,batch_size=32,collate_fn=collate_fn)
+    train_dataloader = DataLoader(train_dataset,batch_size=32,collate_fn=collate_fn,shuffle=True)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     n_epochs = 50
@@ -279,13 +279,14 @@ def linear_classify(total_data,n_clusters,hidden_size):
             y_pred = torch.argmax(y_pred,dim = -1).cpu().tolist()
             batch_eval_y = batch_eval_y.cpu().tolist()
             acc_scores = accuracy_score(y_pred,batch_eval_y)
+            #print('step:{},acc_score:{}\n'.format(epoch,acc_scores))
             eval_acc_ls.append(acc_scores)
         stop_score = acc_scores
         if stop_score > prev_best_score:
             es_cnt = 0
             prev_best_score = stop_score
             checkpoint = {"model": model.state_dict(), "model_cfg":n_clusters}
-            torch.save(checkpoint, 'model_dict.ckpt'+str(n_clusters))
+            torch.save(checkpoint, 'randomgenerate/model_file/model_dict.ckpt'+str(n_clusters))
         else:
             es_cnt += 1
             if es_cnt > es_epoch_cnt:  # early stop

@@ -78,7 +78,7 @@ def print_plot(rs_index_dict):
     ax.set_zlabel('AGO')
     ax.set_title('clusters plot',color = 'red')
     plt.show()
-path_dataset = 'D:/大四上/毕设/dataset'
+path_dataset = 'C:/Users/Cooler Master/Desktop/毕设/crude/dataset'
 path_list = os.listdir(path_dataset)
 csv_file_path_list = []
 for file_name in path_list:
@@ -101,7 +101,7 @@ n_clusters = 3
 rs_index_dict, total_data = Gauss(total_random_generate, n_clusters)
 print_plot(rs_index_dict)
 total_X,total_Y,total_y_class = np.array([total_random_generate[i]['input'] for i in range(len(total_random_generate))]),np.array([total_random_generate[i]['output'] for i in range(len(total_random_generate))]),np.array([total_random_generate[i]['y_class'] for i in range(len(total_random_generate))])
-length = int(0.7*total_X.shape[0])
+length = int(0.8*total_X.shape[0])
 total_indexs = [i for i in range(total_X.shape[0])]
 train_indexs = random.sample(total_indexs,k=length)
 total_indexs = [i for i in range(total_X.shape[0])]
@@ -137,11 +137,11 @@ train_loader = DataLoader(dataset = train_dataset,batch_size=32,shuffle = True)#
 val_loader = DataLoader(dataset = val_dataset,batch_size=len(val_X),shuffle = False)#,collate_fn= collate_train)
 #test_loader = DataLoader(dataset = test_dataset,batch_size=8,shuffle = False)#,collate_fn= collate_train)
 
-device = torch.device('cuda')
+device = torch.device('cpu')
 #Model = tran_model(config).to(device)
 Model = linear_model_pytorch(3,40,3).to(device)
 from tqdm import *
-optimizer = torch.optim.SGD(Model.parameters(), lr=0.3)
+optimizer = torch.optim.SGD(Model.parameters(), lr=0.1)
 #loss_fn = entroy_min()
 loss_fn = nn.CrossEntropyLoss()
 eval_acc_ls = []

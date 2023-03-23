@@ -110,7 +110,7 @@ import time
 import pandas as pd
 from memory_profiler import profile
 if __name__=='__main__':
-    path_dataset = 'D:/大四上/毕设/dataset'
+    path_dataset = 'C:/Users/Cooler Master/Desktop/毕设/crude/dataset'
     path_list = os.listdir(path_dataset)
 
     csv_file_path_list = []
@@ -193,16 +193,16 @@ if __name__=='__main__':
     #     best_scores_dict[names] = [best_score]
     #eval_acc_ls, best_score = classify_model['SVM'](total_data, n_clusters)
     #print(sum([total_data[idx]['y_class'] == 0 for idx in range(len(total_data))]),sum([total_data[idx]['y_class'] == 1 for idx in range(len(total_data))]),sum([total_data[idx]['y_class'] == 2 for idx in range(len(total_data))]))
-    # for hidden_size in range(10,51,10):
+    # for hidden_size in range(40,101,10):
     #     eval_acc_ls,best_score = linear_classify(total_data,n_clusters,hidden_size)
     #     best_scores_dict[str(hidden_size)] = [best_score]
-    hidden_size = 40
+    hidden_size = 80
     eval_acc_ls, best_score = linear_classify(total_data, n_clusters, hidden_size)
     best_scores_dict[str(hidden_size)] = [best_score]
     print(best_score)
-    df = pandas.DataFrame({'1 hidden layer':[0.99881],'2 hidden layers':[0.42857142857142855],'3 hidden layers':[0.3619047619047619],'4 hidden layers':[0.3619047619047619]})
+    #df = pandas.DataFrame({'1 hidden layer':[0.99881],'2 hidden layers':[0.42857142857142855],'3 hidden layers':[0.3619047619047619],'4 hidden layers':[0.3619047619047619]})
     #df = pandas.DataFrame({'relu':[0.9285714285714286],'sigmoid':[0.7988095238095239],'tanh':[0.7285714285714285]})
-    #df = pd.DataFrame(best_scores_dict)
+    df = pd.DataFrame(best_scores_dict)
     print(df)
     for names in df.columns:
         plt.bar(names,df[names],label = names,align='center',width=0.3)
