@@ -166,3 +166,17 @@ class linear_model_pytorch(nn.Module):
         #print(y_pred)
         #print(y)
         return x
+from torch.utils.tensorboard import SummaryWriter
+
+# writer = SummaryWriter('lo1gs')
+# x = range(100)
+
+# writer.close()
+
+from tensorboardX import SummaryWriter
+# 定义Summary_Writer
+writer = SummaryWriter(r'D:\yuketang\Results_2')
+x = range(100)
+for i in x:
+    writer.add_scalar('y=x+10', i+10, i)
+writer.close()
