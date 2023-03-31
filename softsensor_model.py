@@ -6,18 +6,7 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 import scipy.io as scio
-def data_provider():
-    path_dataset = 'D:/yuketang/USD_OS 3/softsensor_data2'
-    # sru_data = pd.read_csv(path_dataset,header=None, skiprows=1).iloc[:,0].apply(lambda x: pd.Series(x.split()))
-    # sru_data.columns = ['MEA GAS',
-    #                     'AIR MEA1',
-    #                     'AIR MEA 2',
-    #                     'AIR SWS',
-    #                     'SWS GAS',
-    #                     'H2S',
-    #                     'SO2']
-    read_data = scio.loadmat(path_dataset+'/read1.mat')
-    write_data = scio.loadmat(path_dataset+'/write1.mat')
+def get_single_XandY(read_data_squeeze,write_data_squeeze):
     read_data_name_ls = [
     "TIC10701_PV",#控温1
     "TI10702_PV",#控温2
@@ -57,9 +46,6 @@ def data_provider():
     write_data_name_dict = {}
     for i in range(len(write_data_name_ls)):
         write_data_name_dict[write_data_name_ls[i]] = i
-    read_data_squeeze = read_data['rs_read_data'][0][0]
-    write_data_squeeze = write_data['write_data'][0][0]
-    
     # print(read_data_squeeze[read_data_name_dict['ATM1HK_PV']][0])
     # print(read_data_squeeze[read_data_name_dict['ATM1KK_PV']][0])
     # print(read_data_squeeze[read_data_name_dict['ATM1FLH_PV']][0])
@@ -122,10 +108,31 @@ def data_provider():
         read_data_squeeze[read_data_name_dict['ATM2KK_PV']],
         read_data_squeeze[read_data_name_dict['ATM3KK_PV']],
     ])
-    rs_dict_ls = []
+    
     total_X = np.squeeze(total_X)
     total_Y = np.squeeze(total_Y)
+    
+    return total_X,total_Y
+def data_provider():
+    path_dataset = 'D:/大四上/毕设/crude/crude/USD_OS 3/softsensor_data2'
+    read_data_ls = [scio.loadmat(path_dataset+'/read{}.mat'.format(i)) for i in range(1,7)]
+    write_data_ls = [scio.loadmat(path_dataset+'/write{}.mat'.format(i)) for i in range(1,7)]
+    # read_data = scio.loadmat(path_dataset+'/read1.mat')
+    # write_data = scio.loadmat(path_dataset+'/write1.mat')
+    read_data_squeeze_ls = [read_data_ls[i]['rs_read_data'][0][0] for i in range(0,6)]
+    write_data_squeeze_ls = [write_data_ls[i]['write_data'][0][0] for i in range(0,6)]
 
+    #read_data_squeeze = read_data['rs_read_data'][0][0]
+    #write_data_squeeze = write_data['write_data'][0][0]
+    total_X,total_Y = [],[]
+    for i in range(0,6):
+        single_X,single_Y = get_single_XandY(read_data_squeeze_ls[i],write_data_squeeze_ls[i])
+        total_X.append(single_X)
+        total_Y.append(single_Y)
+    total_X = np.concatenate(total_X,axis=1)
+    total_Y = np.concatenate(total_Y,axis=1)
+    print(total_X.shape,total_Y.shape)
+    rs_dict_ls = []
     for i in range(total_X.shape[1]):
         rs_dict_ls.append({'X':total_X[:,i],'Y':total_Y[:,i]})
     return rs_dict_ls
@@ -171,7 +178,8 @@ def train_epoch(train_loader,model,epoch,device,loss_fn,optimizer,writer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        writer.add_scalar("Train/MSELoss", loss,global_step)
+        if epoch >=20:
+            writer.add_scalar("Train/MSELoss", loss,global_step)
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -182,7 +190,8 @@ class Net(nn.Module):  # 继承 torch 的 Module（固定）
         self.hidden = nn.Linear(n_feature, n_hidden)  # 定义隐藏层，线性输出
         self.hidden_list = nn.ModuleList([nn.Linear(n_hidden, n_hidden) for i in range(num_of_hidden_layers)])
         self.BN = nn.BatchNorm1d(n_feature)
-        self.predict = nn.Linear(n_hidden, n_output)  # 定义输出层线性输出
+        self.smooth = nn.Linear(n_hidden,int(n_hidden/4))
+        self.predict = nn.Linear(int(n_hidden/4), n_output)  # 定义输出层线性输出
         self.dropout = nn.Dropout(0.2)
     def forward(self, x):  # x是输入信息就是data，同时也是 Module 中的 forward 功能，定义神经网络前向传递的过程，把__init__中的层信息一个一个的组合起来
         x = self.BN(x)
@@ -192,6 +201,7 @@ class Net(nn.Module):  # 继承 torch 的 Module（固定）
             x = F.relu(self.hidden_list[i](x))  # 定义激励函数(隐藏层的线性值)
             x = self.dropout(x)
             #x = self.batch_norm_list[i](x)
+        x = F.relu(self.smooth(x))
         x = self.predict(x)  # 输出层，输出值
         return x
 import tqdm
@@ -211,18 +221,19 @@ if __name__=='__main__':
     else:
         test_indexs = int(len(total_data)*0.9)
         train_data,val_data,test_data = total_data[:select_indexes],total_data[select_indexes:test_indexs],total_data[test_indexs:]
-    n_epochs = 100
+    n_epochs = 500
     train_dataset,val_dataset,test_dataset = Dataset_SRU(train_data),Dataset_SRU(val_data),Dataset_SRU(test_data)
     train_loader = DataLoader(train_dataset,batch_size = 32,shuffle=True,collate_fn=collate_train,drop_last=True)
     val_loader = DataLoader(val_dataset,batch_size = val_dataset.__len__(),shuffle=False,collate_fn=collate_train,drop_last=True)
     test_loader = DataLoader(test_dataset,batch_size = test_dataset.__len__(),shuffle=False,collate_fn=collate_train,drop_last=True)
-    model = Net(n_feature=25,n_output=6,n_hidden=128,num_of_hidden_layers=3)
+    model = Net(n_feature=25,n_output=6,n_hidden=128,num_of_hidden_layers=4)
     
     device = torch.device('cuda')
     model = model.to(device)
     loss_fn = nn.MSELoss()
     #loss_fn = nn.KLDivLoss()
-    optimizer = torch.optim.Adam(model.parameters(),lr= 0.05,weight_decay = 0.1)
+    learning_rate = 1e-5
+    optimizer = torch.optim.Adam(model.parameters(),lr=learning_rate,weight_decay = 0.1)
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_id',help = 'experiment_id',type=str,default='test')
@@ -239,7 +250,8 @@ if __name__=='__main__':
         train_epoch(train_loader,model,epoch,device,loss_fn,optimizer,writer)
         with torch.no_grad():
             MSE_score = eval_epoch(val_loader,model,epoch,device,loss_fn,evaluate_score_fn)
-            writer.add_scalar('Eval/MSE:',MSE_score,epoch)
+            if epoch >= 20:
+                writer.add_scalar('Eval/MSE:',MSE_score,epoch)
             if MSE_score<= best_eval_score:
                 best_eval_score = MSE_score
     print(best_eval_score)
