@@ -113,24 +113,26 @@ def get_single_XandY(read_data_squeeze,write_data_squeeze):
     total_Y = np.squeeze(total_Y)
     
     return total_X,total_Y
-def data_provider():
-    path_dataset = 'D:/大四上/毕设/crude/crude/USD_OS 3/softsensor_data2'
-    read_data_ls = [scio.loadmat(path_dataset+'/read{}.mat'.format(i)) for i in range(1,7)]
-    write_data_ls = [scio.loadmat(path_dataset+'/write{}.mat'.format(i)) for i in range(1,7)]
-    # read_data = scio.loadmat(path_dataset+'/read1.mat')
-    # write_data = scio.loadmat(path_dataset+'/write1.mat')
-    read_data_squeeze_ls = [read_data_ls[i]['rs_read_data'][0][0] for i in range(0,6)]
-    write_data_squeeze_ls = [write_data_ls[i]['write_data'][0][0] for i in range(0,6)]
-
-    #read_data_squeeze = read_data['rs_read_data'][0][0]
-    #write_data_squeeze = write_data['write_data'][0][0]
-    total_X,total_Y = [],[]
-    for i in range(0,6):
-        single_X,single_Y = get_single_XandY(read_data_squeeze_ls[i],write_data_squeeze_ls[i])
-        total_X.append(single_X)
-        total_Y.append(single_Y)
-    total_X = np.concatenate(total_X,axis=1)
-    total_Y = np.concatenate(total_Y,axis=1)
+def data_provider(multi):
+    path_dataset = 'C:/Users/Cooler Master/Desktop/crude/USD_OS 3/softsensor_data2'
+    if not multi:
+        read_data = scio.loadmat(path_dataset+'/read1.mat')
+        write_data = scio.loadmat(path_dataset+'/write1.mat')
+        read_data_squeeze = read_data['rs_read_data'][0][0]
+        write_data_squeeze = write_data['write_data'][0][0]
+        total_X,total_Y = get_single_XandY(read_data_squeeze,write_data_squeeze)
+    else:
+        read_data_ls = [scio.loadmat(path_dataset+'/read{}.mat'.format(i)) for i in range(1,7)]
+        write_data_ls = [scio.loadmat(path_dataset+'/write{}.mat'.format(i)) for i in range(1,7)] 
+        read_data_squeeze_ls = [read_data_ls[i]['rs_read_data'][0][0] for i in range(0,6)]
+        write_data_squeeze_ls = [write_data_ls[i]['write_data'][0][0] for i in range(0,6)]
+        total_X,total_Y = [],[]
+        for i in range(0,6):
+            single_X,single_Y = get_single_XandY(read_data_squeeze_ls[i],write_data_squeeze_ls[i])
+            total_X.append(single_X)
+            total_Y.append(single_Y)
+        total_X = np.concatenate(total_X,axis=1)
+        total_Y = np.concatenate(total_Y,axis=1)
     print(total_X.shape,total_Y.shape)
     rs_dict_ls = []
     for i in range(total_X.shape[1]):
@@ -159,7 +161,7 @@ def eval_epoch(val_loader,model,epoch,device,loss_fn,evaluate_score_fn):
         batch_pred_Y = model(batch_X)
 
     score = evaluate_score_fn(batch_pred_Y,batch_Y)
-    
+    logging.info('eval_score:{}'.format(score))
 
     return score
 
@@ -207,12 +209,17 @@ class Net(nn.Module):  # 继承 torch 的 Module（固定）
 import tqdm
 import argparse
 import time
+import json
+import logging
+
+
 if __name__=='__main__':
     seed_name = 114514
     random.seed(seed_name)
     np.random.seed(seed_name)
     torch.manual_seed(seed=seed_name)
-    total_data = data_provider()
+    multi = True
+    total_data = data_provider(multi)
     random.shuffle(total_data)
     select_indexes = int(len(total_data)*0.8)
     val_text_same = True
@@ -221,31 +228,40 @@ if __name__=='__main__':
     else:
         test_indexs = int(len(total_data)*0.9)
         train_data,val_data,test_data = total_data[:select_indexes],total_data[select_indexes:test_indexs],total_data[test_indexs:]
-    n_epochs = 500
+    n_epochs = 200
     train_dataset,val_dataset,test_dataset = Dataset_SRU(train_data),Dataset_SRU(val_data),Dataset_SRU(test_data)
     train_loader = DataLoader(train_dataset,batch_size = 32,shuffle=True,collate_fn=collate_train,drop_last=True)
     val_loader = DataLoader(val_dataset,batch_size = val_dataset.__len__(),shuffle=False,collate_fn=collate_train,drop_last=True)
     test_loader = DataLoader(test_dataset,batch_size = test_dataset.__len__(),shuffle=False,collate_fn=collate_train,drop_last=True)
-    model = Net(n_feature=25,n_output=6,n_hidden=128,num_of_hidden_layers=4)
-    
-    device = torch.device('cuda')
-    model = model.to(device)
-    loss_fn = nn.MSELoss()
-    #loss_fn = nn.KLDivLoss()
-    learning_rate = 1e-5
-    optimizer = torch.optim.Adam(model.parameters(),lr=learning_rate,weight_decay = 0.1)
+    learn_rate_ls = [1e-5,5e-5,1e-4]
+    num_of_hidden_layers_ls = [2,4,6,8,10]
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_id',help = 'experiment_id',type=str,default='test')
+    parser.add_argument('--learning_rate',help = 'learning_rate',type=float,default=1e-5)
+    parser.add_argument('--num_of_hidden_layers',help = 'num_of_hidden_layers',type=int,default=4)
+    parser.add_argument('--n_hidden',help = 'hidden size 4x ',type = int,default=128)
+    
     opt = parser.parse_args()
-    opt.result_dir = 'D:/crude/' + opt.exp_id +time.strftime("%Y_%m_%d_%H_%M_%S")
+    opt.result_dir = 'C:/Users/Cooler Master/Desktop/crude/results/' + opt.exp_id +'lr_{}_layers_{}_size_{}'.format(opt.learning_rate,opt.num_of_hidden_layers,opt.n_hidden)+time.strftime("%Y_%m_%d_%H_%M_%S")
+    
+    model = Net(n_feature=25,n_output=6,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
+    device = torch.device('cpu')
+    model = model.to(device)
+    loss_fn = nn.MSELoss()
+    
+    #loss_fn = nn.KLDivLoss()
+    optimizer = torch.optim.Adam(model.parameters(),lr=opt.learning_rate,weight_decay = 0.1)
     if os.path.exists(opt.result_dir) == 0:
         os.mkdir(opt.result_dir)
-    
     opt.tensorboard_log_dir = opt.result_dir+'/tensorboard_log_dir'
     writer = SummaryWriter(opt.tensorboard_log_dir)
     evaluate_score_fn = nn.MSELoss()
     best_eval_score = 1e10
+    logging.basicConfig(level=logging.INFO,
+                    filename=opt.result_dir + '/evaluate.log',
+                    filemode='a',
+                    format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
     for epoch in tqdm.tqdm(range(n_epochs),colour = 'red'):
         train_epoch(train_loader,model,epoch,device,loss_fn,optimizer,writer)
         with torch.no_grad():
@@ -254,5 +270,19 @@ if __name__=='__main__':
                 writer.add_scalar('Eval/MSE:',MSE_score,epoch)
             if MSE_score<= best_eval_score:
                 best_eval_score = MSE_score
+                checkpoint = model.state_dict()
+                torch.save({'checkpoint':checkpoint},opt.result_dir+'/model.ckpt')
     print(best_eval_score)
     writer.close()
+    opt_dict = {
+        'learning_rate':opt.learning_rate,
+        'num_of_hidden_layers':opt.num_of_hidden_layers,
+        'n_hidden':opt.n_hidden}
+    checkpoint = torch.load(opt.result_dir+'/model.ckpt')
+    model.load_state_dict(checkpoint['checkpoint'])
+    _ = eval_epoch(val_loader,model,epoch,device,loss_fn,evaluate_score_fn)
+# use logging
+    print('eval_score:{}'.format(_))
+    opt.config_path = opt.result_dir + '/config.json'
+    with open(opt.config_path,'w+') as file:
+        json.dump(opt_dict,file)
