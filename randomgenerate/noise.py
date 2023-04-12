@@ -193,10 +193,10 @@ if __name__=='__main__':
     #     best_scores_dict[names] = [best_score]
     #eval_acc_ls, best_score = classify_model['SVM'](total_data, n_clusters)
     #print(sum([total_data[idx]['y_class'] == 0 for idx in range(len(total_data))]),sum([total_data[idx]['y_class'] == 1 for idx in range(len(total_data))]),sum([total_data[idx]['y_class'] == 2 for idx in range(len(total_data))]))
-    # for hidden_size in range(40,101,10):
-    #     eval_acc_ls,best_score = linear_classify(total_data,n_clusters,hidden_size)
-    #     best_scores_dict[str(hidden_size)] = [best_score]
-    hidden_size = 80
+    for hidden_size in range(40,101,10):
+        eval_acc_ls,best_score = linear_classify(total_data,n_clusters,hidden_size)
+        best_scores_dict[str(hidden_size)] = [best_score]
+    #hidden_size = 90
     eval_acc_ls, best_score = linear_classify(total_data, n_clusters, hidden_size)
     best_scores_dict[str(hidden_size)] = [best_score]
     print(best_score)
