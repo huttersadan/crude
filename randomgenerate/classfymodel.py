@@ -190,30 +190,21 @@ class linear_model_pytorch(nn.Module):
         super(linear_model_pytorch,self).__init__()
         self.relu = relu
         self.linear1 = nn.Linear(in_hsz,hidden_size)
-
-        self.linear2 = nn.Linear(hidden_size,hidden_size)
-        self.linear4 = nn.Linear(hidden_size, hidden_size)
-        self.linear5 = nn.Linear(hidden_size, hidden_size)
-        self.linear3 = nn.Linear(hidden_size,out_hsz)
+        self.BN = nn.BatchNorm1d(in_hsz)
+        
+        self.smooth = nn.Linear(hidden_size,int(hidden_size/4))
+        self.predict = nn.Linear(int(hidden_size/4),out_hsz)
         self.dropout1 = nn.Dropout(dropout)
-        self.dropout2 = nn.Dropout(dropout)
-        self.dropout3 = nn.Dropout(dropout)
     def forward(self,x,y):
         #print(x[1])
-        x = torch.relu(self.linear1(x))
-        #x = self.dropout1(x)
-        x = torch.relu(self.linear2(x))
-        #x = torch.sigmoid(self.linear4(x))
-        #x = torch.sigmoid(self.linear5(x))
-        #x = self.dropout2(x)
-        x = torch.relu(self.linear3(x))
-        #x = self.dropout3(x)
+        x = self.BN(x)
+        x = F.relu(self.linear1(x))
+        x = self.dropout1(x)
+        x = F.relu(self.smooth(x))
+        x = self.predict(x)
         y_pred = F.softmax(x, dim=-1)
         loss_fn = nn.CrossEntropyLoss()
         loss = loss_fn(x,y.type(torch.long))
-        #print('loss :{}'.format(loss))
-        #print(y_pred)
-        #print(y)
         return loss,y_pred
 
 import torch.utils.data as data
@@ -286,7 +277,7 @@ def linear_classify(total_data,n_clusters,hidden_size):
             es_cnt = 0
             prev_best_score = stop_score
             checkpoint = {"model": model.state_dict(), "model_cfg":n_clusters}
-            torch.save(checkpoint, 'randomgenerate/model_file/model_dict.ckpt'+str(n_clusters))
+            torch.save(checkpoint, 'C:/Users/Cooler Master/Desktop/crude/randomgenerate/model_file/model_dict.ckpt'+str(n_clusters))
         else:
             es_cnt += 1
             if es_cnt > es_epoch_cnt:  # early stop
