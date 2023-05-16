@@ -95,7 +95,7 @@ if __name__=='__main__':
     best_scores_dict = {}
     rs_index_dict, total_data = clusters_model['kmeans'](total_random_generate, n_clusters)
     print_plot(rs_index_dict)
-    for hidden_size in range(40,101,30):
+    for hidden_size in range(40,101,60):
         eval_acc_ls,best_score = linear_classify(total_data,n_clusters,hidden_size)
         best_scores_dict[str(hidden_size)] = [best_score]
     df = pd.DataFrame(best_scores_dict)
