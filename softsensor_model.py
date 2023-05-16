@@ -300,9 +300,15 @@ if __name__=='__main__':
     val_loader = DataLoader(val_dataset,batch_size = val_dataset.__len__(),shuffle=False,collate_fn=collate_train,drop_last=True)
     test_loader = DataLoader(test_dataset,batch_size = test_dataset.__len__(),shuffle=False,collate_fn=collate_train,drop_last=True)
     
+<<<<<<< HEAD
     device = torch.device('cuda')
     classify_model = linear_model_pytorch(3,100,3).to(device)
     classify_model.load_state_dict(torch.load('randomgenerate/model_file/model_dict.ckpt3')['model'])
+=======
+    device = torch.device('cpu')
+    classify_model = linear_model_pytorch(3,100,3).to(device)
+    classify_model.load_state_dict(torch.load('model_dict.ckpt3')['model'])
+>>>>>>> origin/exp
     classify_model.eval()
     for batch_idx,(batch_X,batch_Y) in enumerate(total_loader):
         batch_x = (batch_X[:,[-3,-2,-1]].to(device))* 1000

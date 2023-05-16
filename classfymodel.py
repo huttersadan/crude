@@ -196,9 +196,9 @@ class linear_model_pytorch(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
     def forward(self,x,y):
         #print(x[1])
-        x = self.BN(x)
+        #x = self.BN(x)
         x = F.relu(self.linear1(x))
-        x = self.dropout1(x)
+        #x = self.dropout1(x)
         x = F.relu(self.smooth(x))
         x = self.predict(x)
         y_pred = F.softmax(x, dim=-1)
@@ -212,6 +212,8 @@ class simple_dataset(data.Dataset):
     def __init__(self,X,Y):
         self.X = X
         self.Y = Y
+        self.X = (X - np.min(X))/(np.max(X)-np.min(X))
+        #self.Y = (Y - np.mean(Y))/np.std(Y)
     def __getitem__(self, index):
         return self.X[index],self.Y[index]
     def __len__(self):
@@ -224,6 +226,7 @@ def collate_fn(data):
         X,y = inst[0],inst[1]
         rs_X[idx] = torch.tensor(X)
         rs_y[idx] = torch.tensor(y)
+    
     return rs_X,rs_y
 from torch.optim import Optimizer
 import tqdm
@@ -278,7 +281,11 @@ def linear_classify(total_data,n_clusters,hidden_size):
             es_cnt = 0
             prev_best_score = stop_score
             checkpoint = {"model": model.state_dict(), "model_cfg":n_clusters}
+<<<<<<< HEAD
             torch.save(checkpoint, 'randomgenerate/model_file/model_dict.ckpt'+str(n_clusters))
+=======
+            torch.save(checkpoint, 'model1_dict.ckpt'+str(n_clusters))
+>>>>>>> origin/exp
         else:
             es_cnt += 1
             if es_cnt > es_epoch_cnt:  # early stop
