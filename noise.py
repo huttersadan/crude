@@ -53,7 +53,7 @@ def print_plot(rs_index_dict):
                    [values[i][2]/1000 for i in range(len(values))] ,
                    c=colours[idx],
                    marker=markers[idx],label = merge_crude[idx])
-    ax.legend()
+    ax.legend(loc = "right")
     ax.set_xlabel('Kero')
     ax.set_ylabel('Diesel')
     ax.set_zlabel('AGO')

@@ -196,7 +196,7 @@ class linear_model_pytorch(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
     def forward(self,x,y):
         #print(x[1])
-        x = self.BN(x)
+        #x = self.BN(x)
         x = F.relu(self.linear1(x))
         x = self.dropout1(x)
         x = F.relu(self.smooth(x))
@@ -278,7 +278,7 @@ def linear_classify(total_data,n_clusters,hidden_size):
             es_cnt = 0
             prev_best_score = stop_score
             checkpoint = {"model": model.state_dict(), "model_cfg":n_clusters}
-            torch.save(checkpoint, 'model_dict.ckpt'+str(n_clusters))
+            torch.save(checkpoint, 'model1_dict.ckpt'+str(n_clusters))
         else:
             es_cnt += 1
             if es_cnt > es_epoch_cnt:  # early stop
