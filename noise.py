@@ -18,15 +18,9 @@ def get_random_input(mass_of_oil,rate_of_output,num_of_generation):
         input_random1 = np.random.randn()
         input_random2 = np.random.randn()
         input_random3 = np.random.randn()
-<<<<<<< HEAD
-        output_701 = round(rate_of_output[output_features[0]] + input_random1 * 500)
-        output_702 = round(rate_of_output[output_features[1]] + input_random2 * 500)
-        output_703 = round(rate_of_output[output_features[2]] + input_random3 * 500)
-=======
         output_701 = round(rate_of_output[output_features[0]] + input_random1 * 700)
         output_702 = round(rate_of_output[output_features[1]] + input_random2 * 700)
         output_703 = round(rate_of_output[output_features[2]] + input_random3 * 700)
->>>>>>> origin/exp
         if output_701 > 0 and output_702 > 0 and output_703 > 0:
             output_generation = [output_701,output_702,output_703]
             num_of_generation -= 1
@@ -39,7 +33,7 @@ def get_single_csv_random_generate(temp):
     random_input_ls,random_output_ls  = get_random_input(mass_of_oil,rate_of_output,num_of_generation)
     rs_ls = [{'input':i,'output':n} for i,n in zip(random_input_ls,random_output_ls)]
     return rs_ls
-
+plt.rcParams['font.family'] = 'Microsoft YaHei'
 def print_plot(rs_index_dict):
     colours = ['dimgray','lightcoral','darkred','sienna',
                'darkorange','tan','gold','olive','lawngreen',
@@ -47,26 +41,19 @@ def print_plot(rs_index_dict):
                'dodgerblue','blue','darkorchid','fuchsia',
                'deeppink','crimson']
     random.shuffle(colours)
-<<<<<<< HEAD
-=======
     merge_crude = ['A','B','C']
->>>>>>> origin/exp
     markers = ["o","v","+","o","v","+","o","v","+","o","v","+","o","v","+"
                ,"o","v","+","o","v","+","o","v","+","o","v","+","o","v","+","o","v","+"
                ,"o","v","+","o","v","+","o","v","+","o","v","+"]
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     for idx,values in rs_index_dict.items():
-        ax.scatter([values[i][0]/1000 for i in range(len(values))] ,
-                   [values[i][1]/1000 for i in range(len(values))],
-                   [values[i][2]/1000 for i in range(len(values))] ,
+        ax.scatter([values[i][0]/23500 for i in range(len(values))] ,
+                   [values[i][1]/23500 for i in range(len(values))],
+                   [values[i][2]/23500 for i in range(len(values))] ,
                    c=colours[idx],
-<<<<<<< HEAD
-                   marker=markers[idx])
-=======
                    marker=markers[idx],label = merge_crude[idx])
-    ax.legend(loc = "right")
->>>>>>> origin/exp
+    ax.legend(loc = "center left")
     ax.set_xlabel('Kero')
     ax.set_ylabel('Diesel')
     ax.set_zlabel('AGO')
@@ -108,11 +95,7 @@ if __name__=='__main__':
     best_scores_dict = {}
     rs_index_dict, total_data = clusters_model['kmeans'](total_random_generate, n_clusters)
     print_plot(rs_index_dict)
-<<<<<<< HEAD
-    for hidden_size in range(40,101,30):
-=======
     for hidden_size in range(40,101,60):
->>>>>>> origin/exp
         eval_acc_ls,best_score = linear_classify(total_data,n_clusters,hidden_size)
         best_scores_dict[str(hidden_size)] = [best_score]
     df = pd.DataFrame(best_scores_dict)

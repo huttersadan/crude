@@ -1,1 +1,0 @@
-{"learning_rate0": 1e-05, "learning_rate1": 1e-05, "learning_rate2": 1e-05, "learning_rate_total": 1e-05, "num_of_hidden_layers": 4, "n_hidden": 128, "n_epoch0": 50, "n_epoch1": 50, "n_epoch2": 50, "n_epoch_total": 50}

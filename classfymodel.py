@@ -196,10 +196,12 @@ class linear_model_pytorch(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
     def forward(self,x,y):
         #print(x[1])
-        #x = self.BN(x)
+        x = self.BN(x)
         x = F.relu(self.linear1(x))
-        #x = self.dropout1(x)
+        #x = F.tanh(self.linear1(x))
+        x = self.dropout1(x)
         x = F.relu(self.smooth(x))
+        #x = F.tanh(self.smooth(x))
         x = self.predict(x)
         y_pred = F.softmax(x, dim=-1)
         loss_fn = nn.CrossEntropyLoss()
@@ -212,7 +214,7 @@ class simple_dataset(data.Dataset):
     def __init__(self,X,Y):
         self.X = X
         self.Y = Y
-        self.X = (X - np.min(X))/(np.max(X)-np.min(X))
+        #self.X = (X - np.min(X))/(np.max(X)-np.min(X))
         #self.Y = (Y - np.mean(Y))/np.std(Y)
     def __getitem__(self, index):
         return self.X[index],self.Y[index]
@@ -275,17 +277,37 @@ def linear_classify(total_data,n_clusters,hidden_size):
             batch_eval_y = batch_eval_y.cpu().tolist()
             acc_scores = accuracy_score(y_pred,batch_eval_y)
             #print('step:{},acc_score:{}\n'.format(epoch,acc_scores))
+            
+            a_scores = 0
+            b_scores = 0
+            c_scores = 0
+            a_total = 0
+            b_total = 0
+            c_total = 0
+            for idx in range(len(y_pred)):
+                if batch_eval_y[idx] == 0:
+                    a_total += 1
+                    if y_pred[idx] == 0:
+                        a_scores += 1
+                if batch_eval_y[idx] == 1:
+                    b_total += 1
+                    if y_pred[idx] == 1:
+                        b_scores += 1
+                if batch_eval_y[idx] == 2:
+                    c_total += 1
+                    if y_pred[idx] == 2:
+                        c_scores += 1
             eval_acc_ls.append(acc_scores)
+            a_scores = a_scores/a_total
+            b_scores = b_scores/b_total
+            c_scores = c_scores/c_total
+            print('a = {}\n b = {},c = {}'.format(a_scores,b_scores,c_scores))
         stop_score = acc_scores
         if stop_score > prev_best_score:
             es_cnt = 0
             prev_best_score = stop_score
             checkpoint = {"model": model.state_dict(), "model_cfg":n_clusters}
-<<<<<<< HEAD
-            torch.save(checkpoint, 'randomgenerate/model_file/model_dict.ckpt'+str(n_clusters))
-=======
             torch.save(checkpoint, 'model1_dict.ckpt'+str(n_clusters))
->>>>>>> origin/exp
         else:
             es_cnt += 1
             if es_cnt > es_epoch_cnt:  # early stop

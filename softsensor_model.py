@@ -111,8 +111,9 @@ def get_single_XandY(read_data_squeeze,write_data_squeeze):
     
     total_X = np.squeeze(total_X)
     total_Y = np.squeeze(total_Y)
-    
+    total_Y = total_Y[0:1,:]
     return total_X,total_Y
+import matplotlib.pyplot as plt
 def data_provider(multi):
     
     if not multi:
@@ -127,6 +128,15 @@ def data_provider(multi):
         # write_data_squeeze = write_refine_data_squeeze
         total_X,total_Y = get_single_XandY(read_data_squeeze,write_data_squeeze)
         
+        plt_data = copy.deepcopy(total_X[6])[:50]
+        x = [i for i in range(len(plt_data))]
+        plt_data1 = plt_data+ np.random.randn(len(x))*2
+        plt.plot(x,plt_data,label = 'Original temperature')
+        plt.plot(x,plt_data1,label = 'New temperature')
+        
+        plt.ylabel('Temperature/℃')
+        plt.legend()
+        plt.show()
         
         print(total_X.shape,total_Y.shape)
     else:
@@ -142,6 +152,8 @@ def data_provider(multi):
             total_Y.append(single_Y)
         total_X = np.concatenate(total_X,axis=1)
         total_Y = np.concatenate(total_Y,axis=1)
+       
+        
     #print(total_X.shape,total_Y.shape)
     rs_dict_ls = []
     for i in range(total_X.shape[1]):
@@ -160,6 +172,7 @@ from torch.utils.data import DataLoader
 class Dataset_class(data.Dataset):
     def __init__(self,total_X,total_Y):
         self.total_X = total_X.cpu().numpy()
+        self.total_X = (self.total_X - np.mean(self.total_X))/np.std(self.total_X)
         self.total_Y = total_Y.cpu().numpy()
     def __getitem__(self, index):
         return self.total_X[index],self.total_Y[index]
@@ -182,6 +195,8 @@ def eval_epoch(val_loader,model,epoch,device,loss_fn,evaluate_score_fn,type_mode
         batch_X,batch_Y = batch_X.to(device),batch_Y.to(device)
         batch_pred_Y = model(batch_X)
     #print('batch_pred_Y:{},batch_Y:{}'.format(batch_pred_Y.shape,batch_Y.shape))
+    i = random.randint(0,len(batch_Y)-1)
+    print('\n i = {}\n pred:{},\n orginal:{}'.format(i,batch_pred_Y[1],batch_Y[1]))
     score = evaluate_score_fn(batch_pred_Y,batch_Y)
     logging.info('eval_score_model{}:{}'.format(type_model,score))
 
@@ -194,11 +209,8 @@ def train_epoch(train_loader,model,epoch,device,loss_fn,optimizer,writer,type_mo
     for batch_idx,(batch_X,batch_Y) in enumerate(train_loader):
         global_step = len(train_loader)*epoch + batch_idx
         batch_X,batch_Y = batch_X.to(device),batch_Y.to(device)
-        #print(batch_X[0])
-        #print(batch_Y[0])
+        
         batch_pred_y = model(batch_X)
-        #print(batch_pred_y[0])
-        #print('\n')
         loss = loss_fn(batch_pred_y,batch_Y)
         optimizer.zero_grad()
         loss.backward()
@@ -212,26 +224,27 @@ import argparse
 import time
 import json
 import logging
-class linear_model_pytorch(nn.Module):
-    def __init__(self,in_hsz,hidden_size,out_hsz, dropout=0.1):
-        super(linear_model_pytorch,self).__init__()
-        self.linear1 = nn.Linear(in_hsz,hidden_size)
-        self.BN = nn.BatchNorm1d(in_hsz)
+from classfymodel import linear_model_pytorch
+# class linear_model_pytorch(nn.Module):
+#     def __init__(self,in_hsz,hidden_size,out_hsz, dropout=0.1):
+#         super(linear_model_pytorch,self).__init__()
+#         self.linear1 = nn.Linear(in_hsz,hidden_size)
+#         self.BN = nn.BatchNorm1d(in_hsz)
         
-        self.smooth = nn.Linear(hidden_size,int(hidden_size/4))
-        self.predict = nn.Linear(int(hidden_size/4),out_hsz)
-        self.dropout1 = nn.Dropout(dropout)
-    def forward(self,x,y):
-        #print(x[1])
-        x = self.BN(x)
-        x = F.relu(self.linear1(x))
-        x = self.dropout1(x)
-        x = F.relu(self.smooth(x))
-        x = self.predict(x)
-        y_pred = F.softmax(x, dim=-1)
-        loss_fn = nn.CrossEntropyLoss()
-        loss = loss_fn(x,y.type(torch.long))
-        return loss,y_pred
+#         self.smooth = nn.Linear(hidden_size,int(hidden_size/4))
+#         self.predict = nn.Linear(int(hidden_size/4),out_hsz)
+#         self.dropout1 = nn.Dropout(dropout)
+#     def forward(self,x,y):
+#         #print(x[1])
+#         x = self.BN(x)
+#         x = F.relu(self.linear1(x))
+#         x = self.dropout1(x)
+#         x = F.relu(self.smooth(x))
+#         x = self.predict(x)
+#         y_pred = F.softmax(x, dim=-1)
+#         loss_fn = nn.CrossEntropyLoss()
+#         loss = loss_fn(x,y.type(torch.long))
+#         return loss,y_pred
 
 class Net(nn.Module):  # 继承 torch 的 Module（固定）
     def __init__(self, n_feature, n_hidden, n_output,num_of_hidden_layers):  # 定义层的信息，n_feature多少个输入, n_hidden每层神经元, n_output多少个输出
@@ -241,18 +254,18 @@ class Net(nn.Module):  # 继承 torch 的 Module（固定）
         self.hidden_list = nn.ModuleList([nn.Linear(n_hidden, n_hidden) for i in range(num_of_hidden_layers)])
         self.BN = nn.BatchNorm1d(n_feature)
         self.smooth = nn.Linear(n_hidden,int(n_hidden/4))
-        self.predict = nn.Linear(int(n_hidden/4), n_output)  # 定义输出层线性输出
-        self.dropout = nn.Dropout(0.3)
+        self.predict = nn.Linear(int(n_hidden), n_output)  # 定义输出层线性输出
+        self.dropout = nn.Dropout(0.07)
         
     def forward(self, x):  # x是输入信息就是data，同时也是 Module 中的 forward 功能，定义神经网络前向传递的过程，把__init__中的层信息一个一个的组合起来
-        #x = self.BN(x)
+        x = self.BN(x)
         x = F.relu(self.hidden(x))
         x = self.dropout(x)
         for i in range(self.num_of_hidden_layers):
             x = F.relu(self.hidden_list[i](x))  # 定义激励函数(隐藏层的线性值)
-            x = self.dropout(x)
+            #x = self.dropout(x)
             #x = self.batch_norm_list[i](x)
-        x = F.relu(self.smooth(x))
+        #x = F.relu(self.smooth(x))
         x = self.predict(x)  # 输出层，输出值
         return x
 import copy
@@ -300,22 +313,16 @@ if __name__=='__main__':
     val_loader = DataLoader(val_dataset,batch_size = val_dataset.__len__(),shuffle=False,collate_fn=collate_train,drop_last=True)
     test_loader = DataLoader(test_dataset,batch_size = test_dataset.__len__(),shuffle=False,collate_fn=collate_train,drop_last=True)
     
-<<<<<<< HEAD
-    device = torch.device('cuda')
-    classify_model = linear_model_pytorch(3,100,3).to(device)
-    classify_model.load_state_dict(torch.load('randomgenerate/model_file/model_dict.ckpt3')['model'])
-=======
     device = torch.device('cpu')
     classify_model = linear_model_pytorch(3,100,3).to(device)
-    classify_model.load_state_dict(torch.load('model_dict.ckpt3')['model'])
->>>>>>> origin/exp
+    classify_model.load_state_dict(torch.load('model1_dict.ckpt3')['model'])
     classify_model.eval()
     for batch_idx,(batch_X,batch_Y) in enumerate(total_loader):
         batch_x = (batch_X[:,[-3,-2,-1]].to(device))* 1000
         batch_y = torch.zeros(batch_x.shape[0]).to(device)
         _,y_pred = classify_model(batch_x,batch_y)
         y_pred = torch.argmax(y_pred,dim = -1)
-    total_X0 = copy.deepcopy(batch_X[y_pred==0])
+    total_X0 = copy.deepcopy(batch_X[y_pred == 0])
     total_X1 = copy.deepcopy(batch_X[y_pred == 1])
     total_X2 = copy.deepcopy(batch_X[y_pred == 2])
     total_Y0 = copy.deepcopy(batch_Y[y_pred == 0])
@@ -323,6 +330,8 @@ if __name__=='__main__':
     total_Y2 = copy.deepcopy(batch_Y[y_pred == 2])
     total_X = copy.deepcopy(batch_X)
     total_Y = copy.deepcopy(batch_Y)
+    total_X0 = copy.deepcopy(total_X0[:150])
+    total_Y0 = copy.deepcopy(total_Y0[:150])
     X_index = random.sample([i for i in range(len(total_X))],int(len(total_X)*0.8))
     X0_index = random.sample([i for i in range(len(total_X0))],int(len(total_X0)*0.8))
     X1_index = random.sample([i for i in range(len(total_X1))],int(len(total_X1)*0.8))
@@ -367,7 +376,37 @@ if __name__=='__main__':
     test_Y1 = val_Y1
     test_X2 = val_X2
     test_Y2 = val_Y2
-    print(val_Y0.shape)
+    train_X = torch.tensor(np.concatenate((train_X0,train_X1,train_X2)))
+    train_Y = torch.tensor(np.concatenate((train_Y0,train_Y1,train_Y2)))
+    val_X = torch.tensor(np.concatenate((val_X0,val_X1,val_X2)))
+    val_Y = torch.tensor(np.concatenate((val_Y0,val_Y1,val_Y2)))
+    test_X = torch.tensor(np.concatenate((test_X0,test_X1,test_X2)))
+    test_Y = torch.tensor(np.concatenate((test_Y0,test_Y1,test_Y2)))
+    total_X = torch.cat((train_X,val_X))
+    total_Y = torch.cat((train_Y,val_Y))
+    print('shape:{}'.format(total_X.shape))
+    X_index = random.sample([i for i in range(len(total_X))],int(len(total_X)*0.8))
+    no_X_index = []
+    for i in range(len(X_index)):
+        if i not in X_index:
+            no_X_index.append(i)
+    train_X = total_X[X_index]
+    train_Y = total_Y[X_index]
+    val_X = total_X[no_X_index]
+    val_Y = total_Y[no_X_index]
+    test_X = val_X
+    test_Y = val_Y
+    # train_X = train_X1
+    # train_Y = train_Y1
+    
+    # val_X = val_X1
+    # val_Y = val_Y1
+    
+    # test_X = test_X1
+    # test_Y = test_Y1
+    print('\ndata0 size:{}\ndata1 size:{}\ndata2 size:{}\n'.format(len(total_X0),len(total_X1),len(total_X2)))
+    print('\ntotal_data size:{}'.format(train_X.shape))
+    print('\ntotal_data size:{}'.format(train_Y.shape))
     # for batch_idx,(batch_X,batch_Y) in enumerate(train_loader):
     #     batch_x = (batch_X[:,[-3,-2,-1]].to(device))* 1000
     #     print(batch_x)
@@ -444,10 +483,10 @@ if __name__=='__main__':
     test_loader2 = DataLoader(Dataset_class(test_X2,test_Y2),batch_size = test_X2.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
     test_loader = DataLoader(Dataset_class(test_X,test_Y),batch_size = test_X.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
     
-    model0 = Net(n_feature=25,n_output=6,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
-    model1 = Net(n_feature=25,n_output=6,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
-    model2 = Net(n_feature=25,n_output=6,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
-    model_total = Net(n_feature=25,n_output=6,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
+    model0 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
+    model1 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
+    model2 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
+    model_total = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers)
     model0 = model0.to(device)
     model1 = model1.to(device)
     model2 = model2.to(device)
@@ -554,7 +593,7 @@ if __name__=='__main__':
 
     checkpoint = torch.load(opt.result_dir+'/model_total.ckpt')
     model_total.load_state_dict(checkpoint['checkpoint'])
-    _total = eval_epoch(test_loader,model_total,epoch,device,loss_fn,evaluate_score_fn,type_model = 'total')
+    _total = eval_epoch(test_loader2,model_total,epoch,device,loss_fn,evaluate_score_fn,type_model = 'total')
     logging.info('                      ')
     logging.info('test_score_model0:{}'.format(_0))
     logging.info('test_score_model1:{}'.format(_1))
