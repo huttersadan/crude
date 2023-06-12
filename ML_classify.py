@@ -128,7 +128,7 @@ def data_provider(multi):
         # plt.legend()
 
         # plt.show()
-        #绘制散点图
+        # #绘制散点图
         # plt.figure(figsize=(12,4))
         # plt.title('顶循回流返塔温度')
         # plt.scatter(x,plt_data,s=10, c='green', marker='o')
@@ -192,7 +192,6 @@ def data_provider(multi):
     for i in range(total_X.shape[1]):
         rs_dict_ls.append({'X':total_X[:,i],'Y':total_Y[:,i]})
     return rs_dict_ls
-
 import torch.utils.data as data
 class Dataset_SRU(data.Dataset):
     def __init__(self,total_data):
@@ -212,30 +211,28 @@ class Dataset_class(data.Dataset):
         return self.total_X[index],self.total_Y[index]
     def __len__(self):
         return self.total_X.shape[0]
-
 def collate_train(data):
     batch_X,batch_Y = zip(*data)
     batch_X = torch.tensor(np.array(batch_X),dtype=torch.float)
     batch_Y = torch.tensor(np.array(batch_Y),dtype=torch.float)
     return batch_X,batch_Y
-
 def collate_fn(data):
     batch_X,batch_Y = zip(*data)
     batch_X = torch.tensor(batch_X,dtype=torch.float)
     batch_Y = torch.tensor(batch_Y,dtype=torch.float)
     return batch_X,batch_Y
-
 def eval_epoch(val_loader,model,epoch,device,loss_fn,evaluate_score_fn,type_model):
     model.eval()
     batch_pred_Y = None
     for batch_idx,(batch_X,batch_Y) in enumerate(val_loader):
         batch_X,batch_Y = batch_X.to(device),batch_Y.to(device)
         batch_pred_Y = model(batch_X)
-    
+    #print('batch_pred_Y:{},batch_Y:{}'.format(batch_pred_Y.shape,batch_Y.shape))
     i = random.randint(0,len(batch_Y)-1)
     print('\n i = {}\n pred:{},\n orginal:{}'.format(i,batch_pred_Y[1],batch_Y[1]))
     score = evaluate_score_fn(batch_pred_Y,batch_Y)
     logging.info('eval_score_model{}:{}'.format(type_model,score))
+
     return score
 
 
@@ -245,6 +242,7 @@ def train_epoch(train_loader,model,epoch,device,loss_fn,optimizer,writer,type_mo
     for batch_idx,(batch_X,batch_Y) in enumerate(train_loader):
         global_step = len(train_loader)*epoch + batch_idx
         batch_X,batch_Y = batch_X.to(device),batch_Y.to(device)
+        
         batch_pred_y = model(batch_X)
         loss = loss_fn(batch_pred_y,batch_Y)
         optimizer.zero_grad()
@@ -252,7 +250,6 @@ def train_epoch(train_loader,model,epoch,device,loss_fn,optimizer,writer,type_mo
         optimizer.step()
         if epoch >=early_print:
             writer.add_scalar("Train,model{}/MSELoss".format(type_model), loss,global_step)
-
 import torch.nn as nn
 import torch.nn.functional as F
 import tqdm
@@ -289,8 +286,8 @@ class Net(nn.Module):  # 继承 torch 的 Module（固定）
         self.hidden = nn.Linear(n_feature, n_hidden)  # 定义隐藏层，线性输出
         self.hidden_list = nn.ModuleList([nn.Linear(n_hidden, n_hidden) for i in range(num_of_hidden_layers)])
         self.BN = nn.BatchNorm1d(n_feature)
-        self.smooth = nn.Linear(n_hidden,n_hidden)
-        self.predict = nn.Linear(n_hidden, n_output)  # 定义输出层线性输出
+        self.smooth = nn.Linear(n_hidden,int(n_hidden/4))
+        self.predict = nn.Linear(int(n_hidden), n_output)  # 定义输出层线性输出
         self.dropout = nn.Dropout(dropout_prob)
         self.dropout_list = nn.ModuleList([nn.Dropout(dropout_prob) for i in range(num_of_hidden_layers)])
     def forward(self, x):  # x是输入信息就是data，同时也是 Module 中的 forward 功能，定义神经网络前向传递的过程，把__init__中的层信息一个一个的组合起来
@@ -302,47 +299,14 @@ class Net(nn.Module):  # 继承 torch 的 Module（固定）
             x = self.dropout_list[i](x)
         x = self.predict(x)  # 输出层，输出值
         return x
-    
-class Net2(nn.Module):  # 继承 torch 的 Module（固定）
-    def __init__(self, n_feature, n_hidden, n_output,num_of_hidden_layers,dropout_prob):  # 定义层的信息，n_feature多少个输入, n_hidden每层神经元, n_output多少个输出
-        super(Net2, self).__init__()  # 继承 __init__ 功能（固定）
-        self.num_of_hidden_layers = num_of_hidden_layers
-        self.fc = nn.Linear(n_feature,n_hidden)
-        self.hidden1 = nn.Linear(n_hidden, n_hidden)  # 定义隐藏层，线性输出
-        self.hidden2 = nn.Linear(n_hidden, n_hidden)
-        self.hidden3 = nn.Linear(n_hidden, n_hidden)
-        self.hidden_list = [self.hidden1,self.hidden2,self.hidden3]
-        self.Dropout1 = nn.Dropout(dropout_prob)
-        self.Dropout2 = nn.Dropout(dropout_prob)
-        self.Dropout3 = nn.Dropout(dropout_prob)
-        self.Dropout_list = [self.Dropout1,self.Dropout2,self.Dropout3]
-        #self.hidden = nn.Linear(n_feature, )
-        #self.hidden_list = nn.ModuleList([nn.Linear(n_hidden, n_hidden) for i in range(num_of_hidden_layers)])
-        self.BN0 = nn.BatchNorm1d(n_feature)
-        self.BN1 = nn.BatchNorm1d(n_hidden)
-        self.BN2 = nn.BatchNorm1d(n_hidden)
-        self.BN3 = nn.BatchNorm1d(n_hidden)
-        self.BN_list = [self.BN1,self.BN2,self.BN3]
-        self.output = nn.Linear(n_hidden,n_output)
-        
-        #self.smooth = nn.Linear(n_hidden,int(n_hidden/4))
-        #self.predict = nn.Linear(int(n_hidden), n_output)  # 定义输出层线性输出
-        #self.dropout = nn.Dropout(dropout_prob)
-        #self.dropout_list = nn.ModuleList([nn.Dropout(dropout_prob) for i in range(num_of_hidden_layers)])
-    def forward(self, x):  # x是输入信息就是data，同时也是 Module 中的 forward 功能，定义神经网络前向传递的过程，把__init__中的层信息一个一个的组合起来
-        x = self.BN0(x)
-        x = self.fc(x)
-        for i in range(3):
-            x = self.BN_list[i](x)
-            residual_x = x 
-            x = self.hidden_list[i](x)
-            x = self.Dropout_list[i](x)
-            x = F.relu(x) + residual_x
-        x = self.output(x)  # 输出层，输出值
-        return x
 import copy
+from sklearn.svm import SVR
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from sklearn.cross_decomposition import PLSRegression
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
 from torchsummary import summary
-
 if __name__=='__main__':
     seed_name = 12138
     random.seed(seed_name)
@@ -397,297 +361,90 @@ if __name__=='__main__':
         batch_y = torch.zeros(batch_x.shape[0]).to(device)
         _,y_pred = classify_model(batch_x,batch_y)
         y_pred = torch.argmax(y_pred,dim = -1)
-    print('type I = {}, type II= {}, type III = {}'.format(len(batch_X[y_pred == 0]),len(batch_X[y_pred == 1]),len(batch_X[y_pred == 2])))
-    
-    total_X0 = copy.deepcopy(batch_X[y_pred == 0])[:150]
+    total_X0 = copy.deepcopy(batch_X[y_pred == 0])
     total_X1 = copy.deepcopy(batch_X[y_pred == 1])[:150]
     total_X2 = copy.deepcopy(batch_X[y_pred == 2])[:150]
-    total_Y0 = copy.deepcopy(batch_Y[y_pred == 0])[:150]
+    total_Y0 = copy.deepcopy(batch_Y[y_pred == 0])
     total_Y1 = copy.deepcopy(batch_Y[y_pred == 1])[:150]
     total_Y2 = copy.deepcopy(batch_Y[y_pred == 2])[:150]
-    total_X = copy.deepcopy(batch_X)
-    total_Y = copy.deepcopy(batch_Y)
-    X_index = random.sample([i for i in range(len(total_X))],int(len(total_X)*0.8))
-    X0_index = random.sample([i for i in range(len(total_X0))],int(len(total_X0)*0.8))
-    X1_index = random.sample([i for i in range(len(total_X1))],int(len(total_X1)*0.8))
-    X2_index = random.sample([i for i in range(len(total_X2))],int(len(total_X2)*0.8))
-    no_X_index = []
-    for i in range(len(X_index)):
-        if i not in X_index:
-            no_X_index.append(i)
-    no_X0_index = []
-    for i in range(len(X0_index)):
-        if i not in X0_index:
-            no_X0_index.append(i)
-    no_X1_index = []
-    for i in range(len(X1_index)):
-        if i not in X1_index:
-            no_X1_index.append(i)
-    no_X2_index = []
-    for i in range(len(X2_index)):
-        if i not in X2_index:
-            no_X2_index.append(i)
-    train_X = total_X[X_index]
-    train_Y = total_Y[X_index]
-    train_X0 = total_X0[X0_index]
-    train_Y0 = total_Y0[X0_index]
-    train_X1 = total_X1[X1_index]
-    train_Y1 = total_Y1[X1_index]
-    train_X2 = total_X2[X2_index]
-    train_Y2 = total_Y2[X2_index]
-    val_X = total_X[no_X_index]
-    val_Y = total_Y[no_X_index]
-    val_X0 = total_X0[no_X0_index]
-    val_Y0 = total_Y0[no_X0_index]
-    val_X1 = total_X1[no_X1_index]
-    val_Y1 = total_Y1[no_X1_index]
-    val_X2 = total_X2[no_X2_index]
-    val_Y2 = total_Y2[no_X2_index]
-    test_X = val_X
-    test_Y = val_Y
-    test_X0 = val_X0
-    test_Y0 = val_Y0
-    test_X1 = val_X1
-    test_Y1 = val_Y1
-    test_X2 = val_X2
-    test_Y2 = val_Y2
-    train_X = torch.tensor(np.concatenate((train_X0,train_X1,train_X2)))
-    train_Y = torch.tensor(np.concatenate((train_Y0,train_Y1,train_Y2)))
-    val_X = torch.tensor(np.concatenate((val_X0,val_X1,val_X2)))
-    val_Y = torch.tensor(np.concatenate((val_Y0,val_Y1,val_Y2)))
-    test_X = torch.tensor(np.concatenate((test_X0,test_X1,test_X2)))
-    test_Y = torch.tensor(np.concatenate((test_Y0,test_Y1,test_Y2)))
-    total_X = torch.cat((train_X,val_X))
-    total_Y = torch.cat((train_Y,val_Y))
-    #print('shape:{}'.format(total_X.shape))
-    X_index = random.sample([i for i in range(len(total_X))],int(len(total_X)*0.8))
-    no_X_index = []
-    for i in range(len(X_index)):
-        if i not in X_index:
-            no_X_index.append(i)
-    train_X = total_X[X_index]
-    train_X = train_X[:150]
-    train_Y = total_Y[X_index]
-    train_Y = train_Y[:150]
-    val_X = total_X[no_X_index]
-    val_Y = total_Y[no_X_index]
-    val_X = val_X[:150]
-    val_Y = val_Y[:150]
-    test_X = val_X
-    test_Y = val_Y
-    # train_X = train_X1
-    # train_Y = train_Y1
     
-    # val_X = val_X1
-    # val_Y = val_Y1
+    total_X0 = copy.deepcopy(total_X0[:150])
+    total_Y0 = copy.deepcopy(total_Y0[:150])
+    total_X = torch.cat((total_X0,total_X1,total_X2),dim=0)
+    total_Y = torch.cat((total_Y0,total_Y1,total_Y2),dim=0)
     
-    # test_X = test_X1
-    # test_Y = test_Y1
-    print('\ndata0 size:{}\ndata1 size:{}\ndata2 size:{}\n'.format(len(total_X0),len(total_X1),len(total_X2)))
-    print('\ntotal_data size:{}'.format(train_X.shape))
-    print('\ntotal_data size:{}'.format(train_Y.shape))
-    # for batch_idx,(batch_X,batch_Y) in enumerate(train_loader):
-    #     batch_x = (batch_X[:,[-3,-2,-1]].to(device))* 1000
-    #     print(batch_x)
-    #     # b = torch.sum(batch_x,axis = 1)
-    #     # b = 1/b
-    #     # c = torch.cat((b.view(-1,1),b.view(-1,1),b.view(-1,1)),axis = 1)
-    #     # batch_x = batch_x * c
-    #     batch_y = torch.zeros(batch_x.shape[0]).to(device)
-    #     _,y_pred = classify_model(batch_x,batch_y)
-    #     y_pred = torch.argmax(y_pred,dim = -1)
-    # #print('---------------y_pred:{}'.format(y_pred))
+
+    X_all,Y_all = [x.detach().cpu().numpy() for x in total_X],[Y.detach().cpu().numpy() for Y in total_Y]
+    X0,Y0 = [x.detach().cpu().numpy() for x in total_X0],[Y.detach().cpu().numpy() for Y in total_Y0]
+    X1,Y1 = [x.detach().cpu().numpy() for x in total_X1],[Y.detach().cpu().numpy() for Y in total_Y1]
+    X2,Y2 = [x.detach().cpu().numpy() for x in total_X2],[Y.detach().cpu().numpy() for Y in total_Y2]
+    
+    X_train, X_test, y_train, y_test \
+        = train_test_split(X_all, Y_all, test_size=0.1, random_state=0)
+    X_train = X_train[:150]
+    X_test = X_test[:150]
+    y_train = y_train[:150]
+    y_test = y_test[:150]
+    X_train0, X_test0, y_train0, y_test0 \
+        = train_test_split(X0, Y0, test_size=0.5, random_state=0)
+    X_train1, X_test1, y_train1, y_test1 \
+        = train_test_split(X1, Y1, test_size=0.5, random_state=0)
+    X_train2, X_test2, y_train2, y_test2 \
+        = train_test_split(X2, Y2, test_size=0.5, random_state=0)
+    print('X_train:{}'.format(len(X_train)))
+    print('X_train0:{}'.format(len(X_train0)))
+    print('X_train1:{}'.format(len(X_train1)))
+    print('X_train2:{}'.format(len(X_train2)))
+    #import ipdb;ipdb.set_trace()
+    #model = SVR(kernel='rbf', C=1.0, epsilon=0.1)
+    model = PLSRegression(n_components=10)
+    
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse=  np.sqrt(mse)
+    print("total: %.2f\n" % rmse)
+
+    model.fit(X_train0, y_train0)
+    y_pred0 = model.predict(X_test0)
+    mse = mean_squared_error(y_test0, y_pred0)
+    rmse=  np.sqrt(mse)
+    print("Light: %.2f\n" % rmse)
+
+    model.fit(X_train1, y_train1)
+    y_pred1 = model.predict(X_test1)
+    mse = mean_squared_error(y_test1, y_pred1)
+    rmse=  np.sqrt(mse)
+    print("Medium: %.2f\n" % rmse)
+    
+    model.fit(X_train2, y_train2)
+    y_pred2 = model.predict(X_test2)
+    for i in range(len(y_pred2)):
+        print('y_pred2:{},y_test2:{}'.format(y_pred2[i],y_test2[i]))
+    sum_square_error = [(y_pred2[i]-y_test2[i])**2 for i in range(len(y_pred2))]
+    print('sse = {},num = {}'.format(sum(sum_square_error),len(y_pred2)))
+    mse = mean_squared_error(y_test2, y_pred2)
+    rmse=  np.sqrt(mse)
+    print("Heavy: %.2f" % rmse)
+
+    # df_dict = {'n_components':[],'RMSE':[]}
+    # for i in range(1,25):
+    #     model = PLSRegression(n_components=i)
+    #     model.fit(X_train0, y_train0)
+    #     y_pred0 = model.predict(X_test0)
+    #     mse = mean_squared_error(y_test0, y_pred0)
+    #     rmse=  np.sqrt(mse)
         
-    
-    # train_X0 = copy.deepcopy(batch_X[y_pred == 0])
-    # train_X1 = copy.deepcopy(batch_X[y_pred == 1])
-    # train_X2 = copy.deepcopy(batch_X[y_pred == 2])
-    # train_Y0 = copy.deepcopy(batch_Y[y_pred == 0])
-    # train_Y1 = copy.deepcopy(batch_Y[y_pred == 1])
-    # train_Y2 = copy.deepcopy(batch_Y[y_pred == 2])
-    # train_X = copy.deepcopy(batch_X)
-    # train_Y = copy.deepcopy(batch_Y)
-    # for batch_idx,(batch_X,batch_Y) in enumerate(val_loader):
-    #     batch_x = (batch_X[:,[-3,-2,-1]].to(device))* 1000
-    #     # b = torch.sum(batch_x,axis = 1)
-    #     # b = 1/b
-    #     # c = torch.cat((b.view(-1,1),b.view(-1,1),b.view(-1,1)),axis = 1)
-    #     # batch_x = batch_x * c
-    #     batch_y = torch.zeros(batch_x.shape[0]).to(device)
-    #     _,y_pred = classify_model(batch_x,batch_y)
-    #     y_pred = torch.argmax(y_pred,dim = -1)
-    #     #print(y_pred)
-    # val_X0 = copy.deepcopy(batch_X[y_pred == 0])
-    # val_X1 = copy.deepcopy(batch_X[y_pred == 1])
-    # val_X2 = copy.deepcopy(batch_X[y_pred == 2])
-    # val_Y0 = copy.deepcopy(batch_Y[y_pred == 0])
-    # val_Y1 = copy.deepcopy(batch_Y[y_pred == 1])
-    # val_Y2 = copy.deepcopy(batch_Y[y_pred == 2])
-    # val_X = copy.deepcopy(batch_X)
-    # val_Y = copy.deepcopy(batch_Y)
-    # for batch_idx,(batch_X,batch_Y) in enumerate(test_loader):
-    #     batch_x = (batch_X[:,[-3,-2,-1]].to(device))* 1000
-    #     # b = torch.sum(batch_x,axis = 1)
-    #     # b = 1/b
-    #     # c = torch.cat((b.view(-1,1),b.view(-1,1),b.view(-1,1)),axis = 1)
-    #     # batch_x = batch_x * c
-    #     batch_y = torch.zeros(batch_x.shape[0]).to(device)
-    #     _,y_pred = classify_model(batch_x,batch_y)
-    #     y_pred = torch.argmax(y_pred,dim = -1)
-    #     #print(y_pred)
-    # test_X0 = copy.deepcopy(batch_X[y_pred == 0])
-    # test_X1 = copy.deepcopy(batch_X[y_pred == 1])
-    # test_X2 = copy.deepcopy(batch_X[y_pred == 2])
-    # test_Y0 = copy.deepcopy(batch_Y[y_pred == 0])
-    # test_Y1 = copy.deepcopy(batch_Y[y_pred == 1])
-    # test_Y2 = copy.deepcopy(batch_Y[y_pred == 2])
-    # test_X = copy.deepcopy(batch_X)
-    # test_Y = copy.deepcopy(batch_Y)
-    
-    
-    train_loader0 = DataLoader(Dataset_class(train_X0,train_Y0),batch_size = opt.batch_size,shuffle=True,collate_fn=collate_fn,drop_last=True)
-    train_loader1 = DataLoader(Dataset_class(train_X1,train_Y1),batch_size = opt.batch_size,shuffle=True,collate_fn=collate_fn,drop_last=True)
-    train_loader2 = DataLoader(Dataset_class(train_X2,train_Y2),batch_size = opt.batch_size,shuffle=True,collate_fn=collate_fn,drop_last=True)
-    train_loader = DataLoader(Dataset_class(train_X,train_Y),batch_size = opt.batch_size,shuffle=True,collate_fn=collate_fn,drop_last=True)
-    
-    
-    val_loader0 = DataLoader(Dataset_class(val_X0,val_Y0),batch_size = val_X0.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
-    val_loader1 = DataLoader(Dataset_class(val_X1,val_Y1),batch_size = val_X1.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
-    val_loader2 = DataLoader(Dataset_class(val_X2,val_Y2),batch_size = val_X2.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
-    val_loader = DataLoader(Dataset_class(val_X,val_Y),batch_size = val_X.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
-    
-    
-    test_loader0 = DataLoader(Dataset_class(test_X0,test_Y0),batch_size = test_X0.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
-    test_loader1 = DataLoader(Dataset_class(test_X1,test_Y1),batch_size = test_X1.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
-    test_loader2 = DataLoader(Dataset_class(test_X2,test_Y2),batch_size = test_X2.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
-    test_loader = DataLoader(Dataset_class(test_X,test_Y),batch_size = test_X.shape[0],shuffle=False,collate_fn=collate_fn,drop_last=True)
-    
-    #model0 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers,dropout_prob=opt.dropout)
-    #model1 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers,dropout_prob=opt.dropout)
-    #model2 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers,dropout_prob=opt.dropout)
-    #model_total = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers,dropout_prob=opt.dropout)
-    model0 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers,dropout_prob=opt.dropout)
-    model1 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers,dropout_prob=opt.dropout)
-    model2 = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers,dropout_prob=opt.dropout)
-    model_total = Net(n_feature=25,n_output=1,n_hidden=opt.n_hidden,num_of_hidden_layers=opt.num_of_hidden_layers,dropout_prob=opt.dropout)
-    model0 = model0.to(device)
-    model1 = model1.to(device)
-    model2 = model2.to(device)
-    model_total = model_total.to(device)
-    
-    loss_fn = nn.MSELoss()
-    
-    #loss_fn = nn.KLDivLoss()
-    optimizer0 = torch.optim.Adam(model0.parameters(),lr=opt.learning_rate0,weight_decay = 0.1)
-    if os.path.exists(opt.result_dir) == 0:
-        os.mkdir(opt.result_dir)
-    opt.tensorboard_log_dir = opt.result_dir+'/tensorboard_log_dir'
-    # opt.tensorboard_log_dir = 'results/test'
-    writer = SummaryWriter(opt.tensorboard_log_dir)
-    evaluate_score_fn = nn.MSELoss()
-    
-    logging.basicConfig(level=logging.INFO,
-                    filename=opt.result_dir + '/evaluate.log',
-                    filemode='a',
-                    format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
-    best_eval_score = 1e10
-    for epoch in tqdm.tqdm(range(opt.n_epoch0),colour = 'red'):
-        train_epoch(train_loader0,model0,epoch,device,loss_fn,optimizer0,writer,type_model = 0,early_print=opt.early_print)
-        with torch.no_grad():
-            MSE_score = eval_epoch(val_loader0,model0,epoch,device,loss_fn,evaluate_score_fn,type_model=0)
-            if epoch >= opt.early_print:
-                writer.add_scalar('Eval_model0/MSE:',MSE_score,epoch)
-            if MSE_score<= best_eval_score:
-                best_eval_score = MSE_score
-                checkpoint = model0.state_dict()
-                torch.save({'checkpoint':checkpoint},opt.result_dir+'/model0.ckpt')
-    print('eval_best_score model0:{}'.format(best_eval_score))
-    #writer.close()
-    
-    checkpoint = torch.load(opt.result_dir+'/model0.ckpt')
-    model0.load_state_dict(checkpoint['checkpoint'])
-    _0 = eval_epoch(test_loader0,model0,epoch,device,loss_fn,evaluate_score_fn,type_model = 0)
-
-    opt_dict = {
-        'learning_rate0':opt.learning_rate0,
-        'learning_rate1':opt.learning_rate1,
-        'learning_rate2':opt.learning_rate2,
-        'learning_rate_total':opt.learning_rate_total,
-        'num_of_hidden_layers':opt.num_of_hidden_layers,
-        'n_hidden':opt.n_hidden,
-        'n_epoch0':opt.n_epoch0,
-        'n_epoch1':opt.n_epoch1,
-        'n_epoch2':opt.n_epoch2,
-        'n_epoch_total':opt.n_epoch_total
-        }
-    opt.config_path = opt.result_dir + '/config.json'
-    with open(opt.config_path,'w+') as file:
-        json.dump(opt_dict,file)
-    best_eval_score = 1e10
-    optimizer1 = torch.optim.Adam(model1.parameters(),lr=opt.learning_rate1,weight_decay = 0.1)
-    for epoch in tqdm.tqdm(range(opt.n_epoch1),colour = 'red'):
-        train_epoch(train_loader1,model1,epoch,device,loss_fn,optimizer1,writer,type_model = 1,early_print=opt.early_print)
-        with torch.no_grad():
-            MSE_score = eval_epoch(val_loader1,model1,epoch,device,loss_fn,evaluate_score_fn,type_model = 1)
-            if epoch >= opt.early_print:
-                writer.add_scalar('Eval_model1/MSE:',MSE_score,epoch)
-            if MSE_score<= best_eval_score:
-                best_eval_score = MSE_score
-                checkpoint = model1.state_dict()
-                torch.save({'checkpoint':checkpoint},opt.result_dir+'/model1.ckpt')
-    print('eval_best_score model1:{}'.format(best_eval_score))
-
-    checkpoint = torch.load(opt.result_dir+'/model1.ckpt')
-    model1.load_state_dict(checkpoint['checkpoint'])
-    _1 = eval_epoch(test_loader1,model1,epoch,device,loss_fn,evaluate_score_fn,type_model = 1)
-# use logging
-    
-    best_eval_score = 1e10
-    optimizer2 = torch.optim.Adam(model2.parameters(),lr=opt.learning_rate2,weight_decay = 0.1)
-    for epoch in tqdm.tqdm(range(opt.n_epoch2),colour = 'red'):
-        train_epoch(train_loader2,model2,epoch,device,loss_fn,optimizer2,writer,type_model = 2,early_print=opt.early_print)
-        with torch.no_grad():
-            MSE_score = eval_epoch(val_loader2,model2,epoch,device,loss_fn,evaluate_score_fn,type_model = 2)
-            if epoch >= opt.early_print:
-                writer.add_scalar('Eval_model2/MSE:',MSE_score,epoch)
-            if MSE_score<= best_eval_score:
-                best_eval_score = MSE_score
-                checkpoint = model2.state_dict()
-                torch.save({'checkpoint':checkpoint},opt.result_dir+'/model2.ckpt')
-    print('eval_best_score model2:{}'.format(best_eval_score))
-
-    checkpoint = torch.load(opt.result_dir+'/model2.ckpt')
-    model2.load_state_dict(checkpoint['checkpoint'])
-    _2 = eval_epoch(test_loader2,model2,epoch,device,loss_fn,evaluate_score_fn,type_model = 2)
-# use logging
-
-    best_eval_score = 1e10
-    optimizer_total = torch.optim.Adam(model_total.parameters(),lr=opt.learning_rate_total,weight_decay = 0.1)
-    for epoch in tqdm.tqdm(range(opt.n_epoch_total),colour = 'red'):
-        train_epoch(train_loader,model_total,epoch,device,loss_fn,optimizer_total,writer,type_model = 'total',early_print=opt.early_print)
-        with torch.no_grad():
-            MSE_score = eval_epoch(val_loader,model_total,epoch,device,loss_fn,evaluate_score_fn,type_model = 'total')
-            if epoch >= opt.early_print:
-                writer.add_scalar('Eval_model_total/MSE:',MSE_score,epoch)
-            if MSE_score<= best_eval_score:
-                best_eval_score = MSE_score
-                checkpoint = model_total.state_dict()
-                torch.save({'checkpoint':checkpoint},opt.result_dir+'/model_total.ckpt')
-    print('eval_best_score model_total:{}'.format(best_eval_score))
-
-    checkpoint = torch.load(opt.result_dir+'/model_total.ckpt')
-    model_total.load_state_dict(checkpoint['checkpoint'])
-    _total = eval_epoch(test_loader2,model_total,epoch,device,loss_fn,evaluate_score_fn,type_model = 'total')
-    logging.info('                      ')
-    logging.info('test_score_model0:{}'.format(_0))
-    logging.info('test_score_model1:{}'.format(_1))
-    logging.info('test_score_model2:{}'.format(_2))
-    logging.info('test_score_model_total:{}'.format(_total))
-    print('test_score_model0:{}'.format(torch.sqrt(_0)))
-    print('test_score_model1:{}'.format(torch.sqrt(_1)))
-    print('test_score_model2:{}'.format(torch.sqrt(_2)))
-    print('test_score_model_total:{}'.format(torch.sqrt(_total)))
-    with open('1111.txt','a+') as file:
-        file.write(str(opt.batch_size))
-        file.write(':{}'.format(torch.sqrt(_total)))
-        file.write('\n')
+    #     print("Mean squared error: %.2f" % rmse)
+    #     df_dict['n_components'].append(i)
+    #     df_dict['RMSE'].append(rmse)
+    # df = pd.DataFrame(df_dict)
+    # fig, ax = plt.subplots()
+    # #for i in range(2,5):
+    # #     ax.scatter(df[df['min_samples_leaf'] == msl]['max_depth'], df[df['min_samples_leaf'] == msl]['RMSE'], cmap='viridis',label = "min_samples_leaf = {}".format(msl))
+    # ax.scatter(df['n_components'],df['RMSE'],cmap='viridis')
+    # ax.legend()
+    # ax.set_xlabel('max_depth')
+    # ax.set_ylabel('RMSE')
+    # ax.set_title('RMSE vs. max_depth')
+    # plt.show()
